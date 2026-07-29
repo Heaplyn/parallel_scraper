@@ -20,6 +20,7 @@ func check_url(url string, channel chan Result) {
 	if err != nil {
 		// If it fails, send the error
 		channel <- Result{URL: url, Err: err, Duration: time.Since(start)}
+		return
 	}
 	defer res.Body.Close()
 	// 2. If it succeeds, send the status code
@@ -31,7 +32,7 @@ func check_url(url string, channel chan Result) {
 	}
 }
 func CheckUrl(url string) chan Result {
-	newResult := make(chan Result)
+	newResult := make(chan Result, 1)
 	go check_url(url, newResult)
 	return newResult
 }

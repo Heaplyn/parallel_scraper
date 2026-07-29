@@ -7,23 +7,52 @@ import (
 )
 
 func main() {
-	var results []parallel_scraper.Result
-	var threads []chan parallel_scraper.Result
+	url := "https://google.com"
+	count := 10 // Let's test with 10 requests
 
-	times := 40
-	start := time.Now()
+	fmt.Printf("Testing with %d requests to %s...\n\n", count, url)
 
-	for i := 0; i < times; i++ {
-		threads = append(threads, parallel_scraper.CheckUrl("https://google.com"))
-		if len(results) < i-20 || i > times-20 {
-			results = append(results, <-threads[len(results)+1])
-		}
-		if i%10 == 0 {
-			time.Sleep(time.Millisecond * 500)
-			fmt.Println("i is ", i)
-		}
+	// ==========================================
+	// 1. NON-PARALLEL (SEQUENTIAL) BENCHMARK
+	// ==========================================
+	seqStart := time.Now()
+	var seqResults []parallel_scraper.Result
 
+	for i := 0; i < count; i++ {
+		// We wait for each request to finish before starting the next one
+		resultCh := parallel_scraper.CheckUrl(url)
+		result := <-resultCh
+		seqResults = append(seqResults, result)
 	}
-	fmt.Println(results)
-	fmt.Println(time.Since(start))
+	seqDuration := time.Since(seqStart)
+
+	fmt.Printf("Sequential: Checked %d sites in %v\n", len(seqResults), seqDuration)
+
+	// ==========================================
+	// 2. PARALLEL BENCHMARK
+	// ==========================================
+	parStart := time.Now()
+	var parResults []parallel_scraper.Result
+	var channels []chan parallel_scraper.Result
+
+	// Step A: Launch all requests concurrently (non-blocking)
+	for i := 0; i < count; i++ {
+		ch := parallel_scraper.CheckUrl(url)
+		channels = append(channels, ch)
+	}
+
+	// Step B: Wait for and collect ALL results
+	for _, ch := range channels {
+		result := <-ch
+		parResults = append(parResults, result)
+	}
+	parDuration := time.Since(parStart)
+
+	fmt.Printf("Parallel:   Checked %d sites in %v\n", len(parResults), parDuration)
+
+	// ==========================================
+	// SPEEDUP CALCULATIONS
+	// ==========================================
+	speedup := float64(seqDuration) / float64(parDuration)
+	fmt.Printf("\nParallel version is %.2fx faster!\n", speedup)
 }
